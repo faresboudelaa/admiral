@@ -8,6 +8,8 @@ In one 30-minute session, Muse Spark found the cause and installed a gated "stee
 
 ![agent_0's flag carries before and after the edit](docs/carry_paths.png)
 
+**Demo video (2 min):** https://youtu.be/LiCptMfB24c
+
 This applies *Weight-Space Programming* (MIT CSAIL, Nov 2026) with a different editor. The authors used GPT-6 Astra; this is, as far as I know, the first test with a non-OpenAI editor.
 
 ## Results
