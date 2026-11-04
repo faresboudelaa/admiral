@@ -1,0 +1,138 @@
+# Weight-space programming: edit a capture-the-flag policy directly in its weights
+
+You will change the behaviour of a neural-network policy by reading and editing its weights.
+You may not train it: no gradient descent, no optimiser, no fitting weights to data by regression
+or least squares. Every change must come from your own analysis of the weights and of the policy's
+behaviour, written into the weight arrays with numpy.
+
+## The game
+PyQuaticus (MIT Lincoln Laboratory) is maritime capture-the-flag for autonomous boats.
+- Field: 160 m x 80 m. The scrimmage line is x = 80.
+  Blue (the team you control) defends its flag at (20.0, 40.0) on the x < 80 half;
+  red's flag is at (140.0, 40.0) on the other half.
+- Teams of 2 boats. Max speed 2.0 m/s. One decision every 0.8 s of match time.
+- Grab: get within 10 m of the enemy flag. Capture (1 point): carry it back across the scrimmage line onto
+  your own half (x < 80 for blue).
+- Tag: a boat on its own half can tag an opponent within 10 m (then a 30 s cooldown). A tagged boat drops
+  the flag (it returns to its home) and is driven back to its own flag automatically before it can play
+  again. Leaving the field counts as being tagged.
+- A match lasts 600 s (750 decisions) or until a team has 3 points.
+- The practice opponent is a scripted team ("heuristic:hard"). Held-out scoring also uses other opponents.
+
+## The policy
+2 actor network(s): W["agent_0"], W["agent_1"]. Each blue boat has its own actor (agent_i drives blue boat i).
+Architecture of each actor (float32):
+  h1     = tanh(W1 @ obs + b1)     W1: (256, 45),  b1: (256,)
+  h2     = tanh(W2 @ h1  + b2)     W2: (256, 256),  b2: (256,)
+  logits = W3 @ h2 + b3            W3: (17, 256),   b3: (17,)
+  action ~ softmax(logits)          (sampled during matches)
+81,937 weights per actor, 163,874 in total. The shapes must stay as they are.
+
+## Observation (45 values per boat)
+Each value is mapped linearly from its raw range onto [-1, 1] (raw low -> -1, raw high -> +1; booleans: false -1, true +1).
+Headings are nautical (0 deg = +y, 90 deg = +x, clockwise). Bearings are degrees relative to the boat's own
+heading, in [-180, 180] (0 = straight ahead, positive = clockwise).
+"teammate_*" and "opponent_*" entries describe the other boats from this boat's point of view.
+   0  opponent_home_bearing              raw [-180, 180]
+   1  opponent_home_distance             raw [0, 178.885]
+   2  own_home_bearing                   raw [-180, 180]
+   3  own_home_distance                  raw [0, 178.885]
+   4  wall_0_bearing                     raw [-180, 180]
+   5  wall_0_distance                    raw [0, 178.885]
+   6  wall_1_bearing                     raw [-180, 180]
+   7  wall_1_distance                    raw [0, 178.885]
+   8  wall_2_bearing                     raw [-180, 180]
+   9  wall_2_distance                    raw [0, 178.885]
+  10  wall_3_bearing                     raw [-180, 180]
+  11  wall_3_distance                    raw [0, 178.885]
+  12  scrimmage_line_bearing             raw [-180, 180]
+  13  scrimmage_line_distance            raw [0, 178.885]
+  14  speed                              raw [0, 2]
+  15  has_flag                           raw [0, 1]
+  16  on_side                            raw [0, 1]
+  17  tagging_cooldown                   raw [0, 30]
+  18  is_tagged                          raw [0, 1]
+  19  team_score                         raw [0, 3]
+  20  opponent_score                     raw [0, 3]
+  21  teammate_0.bearing                 raw [-180, 180]
+  22  teammate_0.distance                raw [0, 178.885]
+  23  teammate_0.relative_heading        raw [-180, 180]
+  24  teammate_0.speed                   raw [0, 2]
+  25  teammate_0.has_flag                raw [0, 1]
+  26  teammate_0.on_side                 raw [0, 1]
+  27  teammate_0.tagging_cooldown        raw [0, 30]
+  28  teammate_0.is_tagged               raw [0, 1]
+  29  opponent_0.bearing                 raw [-180, 180]
+  30  opponent_0.distance                raw [0, 178.885]
+  31  opponent_0.relative_heading        raw [-180, 180]
+  32  opponent_0.speed                   raw [0, 2]
+  33  opponent_0.has_flag                raw [0, 1]
+  34  opponent_0.on_side                 raw [0, 1]
+  35  opponent_0.tagging_cooldown        raw [0, 30]
+  36  opponent_0.is_tagged               raw [0, 1]
+  37  opponent_1.bearing                 raw [-180, 180]
+  38  opponent_1.distance                raw [0, 178.885]
+  39  opponent_1.relative_heading        raw [-180, 180]
+  40  opponent_1.speed                   raw [0, 2]
+  41  opponent_1.has_flag                raw [0, 1]
+  42  opponent_1.on_side                 raw [0, 1]
+  43  opponent_1.tagging_cooldown        raw [0, 30]
+  44  opponent_1.is_tagged               raw [0, 1]
+
+## Actions (17)
+Each action sets a speed and a heading change relative to the current heading. A target at bearing b
+is steered towards by the action whose heading change is closest to b.
+  0: speed 1.0 x max, turn +180 deg relative to current heading
+  1: speed 1.0 x max, turn +135 deg relative to current heading
+  2: speed 1.0 x max, turn +90 deg relative to current heading
+  3: speed 1.0 x max, turn +45 deg relative to current heading
+  4: speed 1.0 x max, turn +0 deg relative to current heading
+  5: speed 1.0 x max, turn -45 deg relative to current heading
+  6: speed 1.0 x max, turn -90 deg relative to current heading
+  7: speed 1.0 x max, turn -135 deg relative to current heading
+  8: speed 0.5 x max, turn +180 deg relative to current heading
+  9: speed 0.5 x max, turn +135 deg relative to current heading
+  10: speed 0.5 x max, turn +90 deg relative to current heading
+  11: speed 0.5 x max, turn +45 deg relative to current heading
+  12: speed 0.5 x max, turn +0 deg relative to current heading
+  13: speed 0.5 x max, turn -45 deg relative to current heading
+  14: speed 0.5 x max, turn -90 deg relative to current heading
+  15: speed 0.5 x max, turn -135 deg relative to current heading
+  16: stop (speed 0)
+
+## What is wrong
+The policy was trained with MAPPO self-play for 1,500 updates, with a shaped reward (agent_0 was rewarded as an attacker, agent_1 as a defender). It reaches and grabs the enemy flag regularly, but it does not bring it back to its own half.
+Measured by the harness before you start, on 8 practice matches against the practice opponent
+(recorded; load them with load_trace(name) for name in ['baseline_00', 'baseline_01', 'baseline_02', 'baseline_03', 'baseline_04', 'baseline_05', 'baseline_06', 'baseline_07']):
+- matches: 8  (W/D/L 0/3/5), mean score 0.00 : 0.75
+- flag grabs per match (team): 1.50;  captures per grab: 0.00
+- while carrying the flag: 66.9 steps per match; speed toward own half 0.24 m/s (max boat speed 2.0); stop action chosen 17% of carrying steps
+- times tagged per match (team): 2.75;  out-of-bounds per match: 0.62;  tags made: 2.38
+- fraction of time on the enemy half: 0.29;  mean speed 1.06 m/s
+- action frequencies (index: share): 0: 0.03, 1: 0.02, 2: 0.02, 3: 0.04, 4: 0.06, 5: 0.04, 6: 0.18, 7: 0.03, 8: 0.32, 9: 0.01, 10: 0.05, 11: 0.03, 12: 0.03, 13: 0.02, 14: 0.03, 15: 0.03, 16: 0.05
+
+## Goal
+Make the blue team bring the enemy flag home (score captures) in held-out matches, without breaking what already works (reaching and grabbing the flag, defending, staying in bounds). Prefer a small, targeted edit that fixes the cause.
+At the end the harness scores the weights in W on held-out matches you never see (new start positions,
+the practice opponent and opponents you have not played), comparing them with the original weights:
+score difference, captures, flag carrying, tags, out-of-bounds, and the fraction of weights changed.
+
+## Tools
+- python(code): run Python in a persistent kernel (numpy available; the simulator, deep-learning
+  frameworks and network access are not). Preloaded:
+    W            the weights you are editing: W["agent_0"]["W1"], ... (numpy float32). Edit W in place or reassign it.
+    W0           the original weights (read-only)
+    forward(net, obs, hidden=False) -> logits, or (logits, h1, h2);  probs(net, obs) -> action probabilities
+    OBS_NAMES, ACTIONS   the tables above as lists
+    list_traces(), load_trace(name), TRACE_DOC      recorded matches (see TRACE_DOC)
+    changed_fraction()   fraction of weights in W that differ from W0
+    snapshot(name), restore(name)   keep / go back to a version of W (restore("original") resets)
+  Output is truncated to about 20,000 characters. Each run has a 180 s limit.
+  Budget: 100 runs.
+- evaluate(episodes, record): play practice matches with the current W against the practice opponent,
+  each from a new random start, and get the same statistics as above. With record=true the matches are
+  saved as traces you can load. Budget: 50 matches in total.
+- submit(report): finish. The weights in W at that moment are final. In the report, explain the cause you
+  found, the edit you made and why it should work, and give changed_fraction().
+
+When you are done, call submit.

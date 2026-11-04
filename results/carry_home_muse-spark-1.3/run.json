@@ -1,0 +1,80 @@
+{
+ "turns": 66,
+ "minutes": 29.7,
+ "end_reason": "submitted",
+ "usage": {
+  "input": 2939194,
+  "output": 113202,
+  "reasoning": 71642
+ },
+ "report": "CAUSE. The attacker (agent_0) grabs the flag but its carry-mode policy is blind to the way home. On recorded baseline traces, when has_flag=1 the circular correlation between the homeward bearing (own_home_bearing) and the chosen turn is ~0 (-0.06..+0.12 across matches; attack-mode homing is weak but grabs still happen by approach). Sweeping own_home/scrimmage bearings over their full range on fixed carry observations usually does not change the argmax at all, and when it does the choice does not track the bearing (e.g. bearing +160\u00b0 -> STOP; many bearings -> a single stuck action). Consequences measured by the harness: 66.9 steps/match carrying at only 0.24 m/s toward the own half, 17% stop actions while carrying, carriers wander (typical carry nets only ~5 m toward home) and every carry episode ends in a tag \u2014 0.00 captures/grab.\n\nEDIT (agent_0 only, agent_1 defender untouched). Installed a gated \"return-home\" reflex through 8 dead h1 units + 8 dead h2 units (saturated, near-zero variance, tiny output norms):\n- Each donor h1 unit k computes tanh(2*own_home_b + 2*scrim_b... precisely (g/2)*b2+(g/2)*b12 + 6*hf - 4*t_k - 6), i.e. a bearing threshold detector that is pinned to a constant (-1) when has_flag=-1 and becomes tanh(4*(avg_bearing - t_k)) when carrying. Thresholds at \u00b10.2,\u00b10.4,\u00b10.6,\u00b10.8 (\u2248\u00b136\u00b0,\u00b172\u00b0,\u00b1108\u00b0,\u00b1144\u00b0) form a thermometer code for the homeward bearing.\n- Each donor h2 unit copies one h1 unit (single weight 3.0, passthrough), giving a clean staircase code.\n- The 8 donor W3 columns implement the telescoping vote V[:,m]=(G/2)(onehot(d(m+1))-onehot(d(m))) with bin->action map [0,7,6,5,4,3,2,1,0] (full-speed turn closest to each bin center; G=10), stop row zeroed.\n- Preservation: donor h1 downstream columns were zeroed with their constant drive folded into all 256 b2 biases (using exact old means); non-carry donor-h2 constants and old W3 contributions folded into b3. Verified: non-carry logits argmax agreement 99.8% (median abs diff 0.0025), carry-mode argmax equals the desired homing action on 97% of real carry observations; mean stop probability while carrying fell to ~0-3% with ~93% full-speed probability.\nWeight change: 2.93% total (agent_0 only: 8 W1 rows, 8 b1, 8 W2 columns + 8 W2 rows, 256 b2 comps, 8 W3 columns, b3). Shapes/dtypes unchanged.\n\nEFFECT (20 practice matches vs heuristic:hard): captures/grab 0.00 -> ~0.37, speed toward own half 0.24 -> ~1.75 m/s, carry stops 17% -> ~0%, mean score 0.00:0.75 -> ~0.60:x with multiple wins; grabs, tags made, OOB and enemy-half fraction essentially unchanged (OOB events all occur with has_flag=-1, i.e. base policy). Residual failures are interceptions by defenders, not wandering. The reflex keys only on has_flag and homeward bearings, so it is independent of start positions; defense was not touched.",
+ "audit_flags": [
+  {
+   "turn": 37,
+   "match": "lstsq"
+  }
+ ],
+ "python_runs_used": 62,
+ "matches_used": 28,
+ "sandbox": "docker",
+ "model": "muse-spark-1.3",
+ "effort": "high",
+ "protocol": "responses",
+ "task": "carry_home",
+ "checkpoint": "C:\\Users\\fares\\Desktop\\Projet\\admiral\\checkpoints\\legacy\\mappo_2v2_selfplay_final.pt",
+ "baseline": {
+  "n": 8,
+  "wins": 0,
+  "draws": 3,
+  "losses": 5,
+  "mean_score_diff": -0.75,
+  "mean_blue_score": 0.0,
+  "mean_red_score": 0.75,
+  "mean_steps": 750.0,
+  "dead_stop_rate": 0.0,
+  "loiter_rate": 0.0,
+  "spin_rate": 0.0,
+  "enemy_side_rate": 0.28950926393226806,
+  "near_enemy_flag_without_grab_rate": 0.015677517487848514,
+  "mean_speed": 1.0561820730147695,
+  "crossings_into_enemy_half": 5.125,
+  "oob_events": 0.625,
+  "times_tagged": 2.75,
+  "tags_made": 2.375,
+  "flag_grabs": 1.5,
+  "carry_steps": 66.875,
+  "carry_progress_m": 12.7467473876374,
+  "carry_stop_actions": 11.25,
+  "carry_homeward_speed_mps": 0.23825696051658693,
+  "carry_stop_rate": 0.16822429906542055,
+  "captures_per_grab": 0.0,
+  "action_hist": [
+   0.0303,
+   0.0225,
+   0.0242,
+   0.0387,
+   0.0586,
+   0.0404,
+   0.1826,
+   0.0254,
+   0.3234,
+   0.0118,
+   0.0508,
+   0.0266,
+   0.0344,
+   0.022,
+   0.0302,
+   0.0262,
+   0.0519
+  ]
+ },
+ "budgets": {
+  "python": 100,
+  "matches": 50
+ },
+ "weight_diff": {
+  "changed": 4809,
+  "total": 163874,
+  "pct": 2.934571683122399
+ }
+}
