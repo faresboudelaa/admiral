@@ -34,6 +34,14 @@ The full session is in [`transcript.md`](results/carry_home_muse-spark-1.3/trans
 4. **Preserving everything else.** It folded the old constant contributions of those units into the biases, By its own check, outside the flag carry the edited network picks the same action as the original on 99.8% of recorded states.
 5. **Checking.** It used 28 of its 50 practice matches and 62 of its 100 Python runs, then submitted.
 
+## Checking the circuit
+
+To check that the new circuit is what changed the behaviour, `wsp/circuit_check.py` runs the original and edited networks on 60,000 recorded agent_0 states from the held-out replays ([`circuit_check.json`](results/carry_home_muse-spark-1.3/circuit_check.json)):
+
+- **While carrying the flag**, the edited network turns toward home 74% of the time (12% before), stops 1% of the time (17% before) and moves at full speed 96% of the time (45% before).
+- **Knock-out:** zeroing the circuit's 8 output columns gives back the original's top action on 99.7% of carrying states. The circuit alone accounts for the change.
+- **Everywhere else**, on the 56,615 non-carrying states, the edited network picks the same top action as the original 99.8% of the time.
+
 ## How the harness works
 
 The full description is in [`wsp/README.md`](wsp/README.md). In short:
@@ -88,6 +96,7 @@ On Linux, set `SDL_VIDEODRIVER=dummy` for headless runs. On Windows, `pymoos` ca
 | `legacy/scenario_init.py` | randomised start positions used for matches |
 | `third_party/pyquaticus/` | MIT Lincoln Lab's PyQuaticus (BSD-3-Clause), the course fork used to train the policy |
 | `docs/carry_paths.png` | the figure above |
+| `wsp/circuit_check.py` | runs both networks on recorded states: turn vs direction home, a knock-out of the circuit, agreement with the original |
 | `wsp/record_carry.py` | renders simulator footage of a flag carry (original vs edited, same start), used for the demo video |
 
 ## Credits

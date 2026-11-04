@@ -62,6 +62,12 @@ To see where agent_0 goes while it carries the flag, before and after the edit:
 
 The heuristic opponents use randomness that the start seed does not fix, so a replay starts every match like the scored run but does not always play out identically.
 
+Then check what the edit changed on those recorded states (takes seconds):
+
+```bash
+.venv/Scripts/python.exe -m wsp.circuit_check --edited runs/<run>/edited.pt
+```
+
 ## The tasks
 
 **`carry_home` (default): a repair.** The target is `checkpoints/legacy/mappo_2v2_selfplay_final.pt`, a self-play policy trained for 1,500 updates. Against the heuristic "hard" team, agent_0 grabs the enemy flag about 1.5 times per match but has never scored in any measured match. While it carries the flag, it moves toward its own half at about 0.2 m/s (max speed is 2.0) and picks the *stop* action about 17% of the time. Every carry ends in a tag. This is a single, localised fault, like Kinetix's "stuck on the ramp". A capture only needs the carrier to cross back over the scrimmage line, so the needed behaviour is simple: when `has_flag` is on, steer toward `own_home_bearing` at full speed.
@@ -97,6 +103,7 @@ The heuristic opponents use randomness that the start seed does not fix, so a re
 | `editor.py` | tool definitions, Responses / Chat / scripted clients, the edit loop |
 | `heldout.py` | paired held-out comparison and `report.md` |
 | `carry_paths.py` | replays held-out start positions and records each flag carry's path (`carries.json`) |
+| `circuit_check.py` | on those recorded states: turn chosen vs direction home, a knock-out of the edit's output columns, and top-action agreement with the original (`circuit_check.json`) |
 | `run.py` | the entry point |
 | `_compat.py` | stubs `pymoos`, which PyQuaticus imports but simulation never uses (it needs MSVC to build on Windows) |
 
