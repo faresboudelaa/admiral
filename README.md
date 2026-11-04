@@ -86,6 +86,7 @@ On Linux, set `SDL_VIDEODRIVER=dummy` for headless runs. On Windows, `pymoos` ca
 | `legacy/scenario_init.py` | randomised start positions used for matches |
 | `third_party/pyquaticus/` | MIT Lincoln Lab's PyQuaticus (BSD-3-Clause), the course fork used to train the policy |
 | `docs/carry_paths.png` | the figure above |
+| `wsp/record_carry.py` | renders simulator footage of a flag carry (original vs edited, same start), used for the demo video |
 
 ## Credits
 
